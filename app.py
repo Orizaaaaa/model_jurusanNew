@@ -1,25 +1,29 @@
-# app.py
-
 from flask import Flask, request, jsonify
-import joblib
-import os
+from flask_cors import CORS
+import pickle
+import numpy as np
 
 app = Flask(__name__)
+CORS(app)  # 🔥 Ini penting untuk mengaktifkan CORS
 
 # Load model
-model_path = os.path.join(os.path.dirname(__file__), 'model/jurusan_model.pkl')
-model = joblib.load(model_path)
+with open('model.pkl', 'rb') as f:
+    model = pickle.load(f)
 
-@app.route("/predict", methods=["POST"])
+@app.route('/')
+def index():
+    return "✅ API Jurusan Siap Digunakan"
+
+@app.route('/predict', methods=['POST'])
 def predict():
-    data = request.get_json()
-    answers = data.get("answers")
+    data = request.json
+    answers = data.get('answers')
 
     if not answers or len(answers) != 40:
-        return jsonify({"error": "Jawaban tidak valid. Harus 40 item."}), 400
+        return jsonify({'error': 'Harus menyertakan 40 jawaban'}), 400
 
     prediction = model.predict([answers])[0]
-    return jsonify({"jurusan": prediction})
+    return jsonify({'predicted_major': prediction})
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
