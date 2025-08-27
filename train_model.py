@@ -1,52 +1,59 @@
 import pandas as pd
+import numpy as np
+import joblib
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import classification_report, accuracy_score, f1_score, confusion_matrix
 from imblearn.over_sampling import RandomOverSampler
-import pickle
+from imblearn.pipeline import Pipeline
+import os
 
-# Load dataset (menggunakan header)
-df = pd.read_csv('dataset.csv')
+# === Load dataset ===
+df = pd.read_csv("dataset.csv")
 
 # Pisahkan fitur dan label
-X = df.drop(columns=['Label'])
-y = df['Label']
+X = df.drop(columns=["Label"])
+y = df["Label"]
 
 # Pastikan semua fitur numerik
-X = X.apply(pd.to_numeric, errors='coerce')
+X = X.apply(pd.to_numeric, errors="coerce")
 
-# Tangani nilai NaN jika ada
+# Tangani nilai NaN
 if X.isnull().values.any():
-    print("⚠️ Ditemukan nilai kosong (NaN), akan diisi dengan 0.")
+    print("⚠️ Terdapat nilai kosong (NaN), diisi dengan 0.")
     X = X.fillna(0)
 
-# Cek distribusi label awal
-print("📊 Distribusi label awal:")
+# Distribusi awal
+print("📊 Distribusi Label Awal:")
 print(y.value_counts())
 
-# Oversampling agar data seimbang
-ros = RandomOverSampler(random_state=42)
-X_resampled, y_resampled = ros.fit_resample(X, y)
+# === Pipeline (Oversampling + RandomForest) ===
+pipeline = Pipeline([
+    ("oversample", RandomOverSampler(random_state=42)),
+    ("clf", RandomForestClassifier(
+        n_estimators=200,       # lebih besar untuk stabilitas
+        max_depth=None,         # biarkan RF cari kedalaman optimal
+        min_samples_split=2,
+        random_state=42,
+        n_jobs=-1               # gunakan semua core CPU
+    ))
+])
 
-# Cek distribusi label setelah oversampling
-print("\n📊 Distribusi label setelah oversampling:")
-print(y_resampled.value_counts())
-
-# Stratified split
+# Train-test split
 X_train, X_test, y_train, y_test = train_test_split(
-    X_resampled, y_resampled, test_size=0.2, stratify=y_resampled, random_state=42
+    X, y, test_size=0.2, stratify=y, random_state=42
 )
 
-# Latih model
-model = RandomForestClassifier(n_estimators=100, random_state=42)
-model.fit(X_train, y_train)
+# Train model
+pipeline.fit(X_train, y_train)
 
-# Simpan model
-with open('model.pkl', 'wb') as f:
-    pickle.dump(model, f)
+# === Save model ===
+os.makedirs("models", exist_ok=True)
+joblib.dump(pipeline, "models/model.pkl")
+print("\n💾 Model berhasil disimpan di models/model.pkl")
 
-# Evaluasi model
-y_pred = model.predict(X_test)
+# === Evaluasi ===
+y_pred = pipeline.predict(X_test)
 
 print("\n✅ Model Evaluation:\n")
 print(classification_report(y_test, y_pred))
@@ -54,3 +61,18 @@ print("🎯 Accuracy:", f"{accuracy_score(y_test, y_pred):.2%}")
 print("🎯 F1 Score:", f"{f1_score(y_test, y_pred, average='weighted'):.2%}")
 print("🧮 Confusion Matrix:")
 print(confusion_matrix(y_test, y_pred))
+
+# === Cross Validation ===
+cv_scores = cross_val_score(pipeline, X, y, cv=5, scoring="accuracy")
+print("\n📊 Cross Validation Accuracy:", cv_scores)
+print("📊 Mean CV Accuracy:", f"{cv_scores.mean():.2%}")
+
+# === Feature Importance (dari RandomForest) ===
+clf = pipeline.named_steps["clf"]
+importances = clf.feature_importances_
+features = X.columns
+
+sorted_idx = np.argsort(importances)[::-1][:10]  # top 10 fitur
+print("\n🌟 Top 10 Pertanyaan Paling Berpengaruh:")
+for i in sorted_idx:
+    print(f"{features[i]}: {importances[i]:.4f}")
