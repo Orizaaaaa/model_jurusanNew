@@ -18,7 +18,7 @@ dataset = [
 
 # Data user (hanya nama dan apakah cocok)
 users = [
-    {"Nama Lengkap": "Rafael abizar", "Apakah cocok?": "Iya"},
+    {"Nama Lengkap": "Gugun Gumilar", "Apakah cocok?": "Iya"},
 ]
 
 # Mapping entry ID untuk pertanyaan skala 1-5
