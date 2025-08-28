@@ -1,4 +1,7 @@
 import requests
+import time
+from datetime import datetime, timedelta
+import random
 
 # URL untuk submit (bukan viewform tapi formResponse)
 form_url = "https://docs.google.com/forms/d/e/1FAIpQLSfN6hfS399wV1gRMiBBI1X8_yaVyLI3i_TJegV2w3oMxVI1tQ/formResponse"
@@ -15,13 +18,7 @@ dataset = [
 
 # Data user (hanya nama dan apakah cocok)
 users = [
-    {"Nama Lengkap": "Rafa Pratama ", "Apakah cocok?": "Iya"},
-    {"Nama Lengkap": "Arya Handayani", "Apakah cocok?": "Iya"},
-    {"Nama Lengkap": "Daffa Ananta", "Apakah cocok?": "Tidak"},
-    {"Nama Lengkap": "Anya Anggraini", "Apakah cocok?": "Iya"},
-    {"Nama Lengkap": "Cleo Pertiwi", "Apakah cocok?": "Iya"},
-    {"Nama Lengkap": "Farel Saputra", "Apakah cocok?": "Iya"},
-    {"Nama Lengkap": "Salma Pertiwi", "Apakah cocok?": "Iya"}
+    {"Nama Lengkap": "Rafael abizar", "Apakah cocok?": "Iya"},
 ]
 
 # Mapping entry ID untuk pertanyaan skala 1-5
@@ -38,12 +35,51 @@ entry_ids = [
     "entry.497288204", "entry.928531190", "entry.547538387", "entry.585896102"
 ]
 
+# Daftar tanggal yang diizinkan: 28 Agustus, 29 Agustus, 1 September 2024
+allowed_dates = [
+    datetime(2024, 8, 28),
+    datetime(2024, 8, 29), 
+    datetime(2024, 9, 1)
+]
+
+# Generate jam yang unik untuk setiap tanggal
+used_times = {date: set() for date in allowed_dates}
+
+def generate_unique_time(date):
+    """Generate waktu yang unik untuk tanggal tertentu (tidak lebih dari jam 3)"""
+    available_hours = list(range(0, 4))  # Jam 0, 1, 2, 3
+    available_minutes = list(range(0, 60))
+    available_seconds = list(range(0, 60))
+    
+    # Coba maksimal 100 kali untuk mendapatkan waktu yang unik
+    for _ in range(100):
+        hour = random.choice(available_hours)
+        minute = random.choice(available_minutes)
+        second = random.choice(available_seconds)
+        
+        time_key = (hour, minute, second)
+        
+        if time_key not in used_times[date]:
+            used_times[date].add(time_key)
+            return datetime(date.year, date.month, date.day, hour, minute, second)
+    
+    # Jika tidak bisa dapat waktu unik, gunakan waktu default
+    return datetime(date.year, date.month, date.day, 0, 0, 0)
+
+# Generate timestamp unik untuk setiap user
+timestamps = []
+for i in range(len(users)):
+    # Pilih tanggal secara acak dari allowed_dates
+    date = random.choice(allowed_dates)
+    timestamp = generate_unique_time(date)
+    timestamps.append(timestamp)
+
 # Kirim data untuk setiap user
 for i, user in enumerate(users):
     # Ambil data dari dataset secara berurutan
-    data_index = i % len(dataset)  # Menggunakan modulo untuk mengulang jika dataset habis
-    jawaban_skala = dataset[data_index][:40]  # Ambil 40 nilai pertama (q1 sampai q40)
-    jurusan_dataset = dataset[data_index][40]  # Ambil label jurusan dari dataset
+    data_index = i % len(dataset)
+    jawaban_skala = dataset[data_index][:40]
+    jurusan_dataset = dataset[data_index][40]
     
     # Format khusus untuk jurusan PPLG
     if jurusan_dataset == "PPLG":
@@ -51,12 +87,19 @@ for i, user in enumerate(users):
     else:
         jurusan_form = jurusan_dataset
     
+    # Ambil timestamp yang sudah digenerate
+    submission_time = timestamps[i]
+    timestamp_str = submission_time.strftime("%Y-%m-%d %H:%M:%S")
+    
     # Siapkan data untuk form
     form_data = {
         "entry.1447702576": user["Nama Lengkap"],      # Nama Lengkap
-        "entry.943347128": jurusan_form,               # Jurusan Saat Ini (dari dataset)
+        "entry.943347128": jurusan_form,               # Jurusan Saat Ini
         "entry.1471914611": user["Apakah cocok?"],     # Apakah cocok?
     }
+    
+    # Tambahkan timestamp jika ada field untuknya
+    # form_data["entry.timestamp"] = timestamp_str
     
     # Tambahkan jawaban untuk pertanyaan skala 1-5
     for j in range(40):
@@ -66,14 +109,25 @@ for i, user in enumerate(users):
     # Kirim POST request ke form
     response = requests.post(form_url, data=form_data)
     
+    # Delay acak antara 3-8 detik antara setiap submission
+    delay = random.uniform(3, 8)
+    time.sleep(delay)
+    
     print(f"\nMengirim data untuk: {user['Nama Lengkap']}")
     print(f"Jurusan: {jurusan_form}")
+    print(f"Waktu submission: {timestamp_str}")
+    print(f"Tanggal: {submission_time.strftime('%d/%m/%Y')}")
+    print(f"Jam: {submission_time.strftime('%H:%M:%S')}")
+    print(f"Delay berikutnya: {delay:.1f} detik")
     print(f"Menggunakan dataset baris: {data_index + 1}")
     print("Status code:", response.status_code)
     if response.status_code == 200:
         print("✅ Berhasil submit form!")
     else:
         print("❌ Gagal submit, status:", response.status_code)
-    print("-" * 50)
+    print("-" * 60)
 
 print("\n✅ Semua data telah dikirim!")
+print("\n📊 Summary Waktu:")
+for i, timestamp in enumerate(timestamps):
+    print(f"{i+1}. {timestamp.strftime('%d/%m/%Y %H:%M:%S')} - {users[i]['Nama Lengkap']}")
