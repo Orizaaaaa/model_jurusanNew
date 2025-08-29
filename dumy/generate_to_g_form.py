@@ -17,7 +17,7 @@ users_file   = "dumy/data_siswa.xlsx"
 
 # Atur range user yang mau dikirim (misal user ke 1–5)
 start_user = 1
-end_user   = 5
+end_user   = 669
 
 # Daftar tanggal yang diizinkan
 allowed_dates = [
