@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import joblib
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import classification_report, accuracy_score, f1_score, confusion_matrix
@@ -59,8 +61,35 @@ print("\n✅ Model Evaluation:\n")
 print(classification_report(y_test, y_pred))
 print("🎯 Accuracy:", f"{accuracy_score(y_test, y_pred):.2%}")
 print("🎯 F1 Score:", f"{f1_score(y_test, y_pred, average='weighted'):.2%}")
-print("🧮 Confusion Matrix:")
-print(confusion_matrix(y_test, y_pred))
+
+# === Visualisasi Confusion Matrix ===
+cm = confusion_matrix(y_test, y_pred)
+class_names = pipeline.classes_
+
+plt.figure(figsize=(10, 8))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+            xticklabels=class_names, 
+            yticklabels=class_names,
+            cbar_kws={'label': 'Jumlah Sampel'})
+plt.title('Confusion Matrix\n', fontsize=16, fontweight='bold')
+plt.ylabel('Label Sebenarnya', fontsize=12)
+plt.xlabel('Label Prediksi', fontsize=12)
+plt.xticks(rotation=45, ha='right')
+plt.yticks(rotation=0)
+
+# Tambahkan nilai persentase
+total = np.sum(cm, axis=1, keepdims=True)
+percentages = cm / total.astype(float) * 100
+for i in range(cm.shape[0]):
+    for j in range(cm.shape[1]):
+        if cm[i, j] > 0:
+            plt.text(j+0.5, i+0.7, f'{percentages[i, j]:.1f}%', 
+                    ha='center', va='center', fontsize=9, color='red')
+
+plt.tight_layout()
+plt.savefig('confusion_matrix.png', dpi=300, bbox_inches='tight')
+print("📊 Confusion Matrix telah disimpan sebagai 'confusion_matrix.png'")
+plt.show()
 
 # === Cross Validation ===
 cv_scores = cross_val_score(pipeline, X, y, cv=5, scoring="accuracy")
